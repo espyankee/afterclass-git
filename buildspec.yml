@@ -1,3 +1,32 @@
+# version: 0.2
+
+# phases:
+#   install:
+#     runtime-versions:
+#       nodejs: 16
+#     commands:
+#       - echo Insatlling dependencies...
+#       - npm install
+
+#   pre_build:
+#     commands:
+#       - echo Nothing to do in pre_build phase...
+#       - ls -l
+
+#   build:
+#     commands:
+#       - echo Build started on `date`
+#       - npm run build
+#       - ls -l
+#   post_build:
+#     commands:
+#       - echo Build completed on `date`
+
+# artifacts:
+#   files:
+#     - dist/shop/*
+#     - dist/shop/assets/*
+#     - appspec.yml
 version: 0.2
 
 phases:
@@ -5,25 +34,35 @@ phases:
     runtime-versions:
       nodejs: 16
     commands:
-      - echo Insatlling dependencies...
+      - echo Installing dependencies...
       - npm install
 
   pre_build:
     commands:
-      - echo Nothing to do in pre_build phase...
-      - ls -l
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - REPOSITORY_URI='467880930388.dkr.ecr.ap-northeast-1.amazonaws.com/afterclass-lesson6-ecr'
+      - echo REPOSITORY_URI=$REPOSITORY_URI
+      - aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin 467880930388.dkr.ecr.ap-northeast-1.amazonaws.com
+      - echo Build started on `date`
 
   build:
     commands:
       - echo Build started on `date`
       - npm run build
-      - ls -l
+      - echo Building the Docker image...
+      - docker build -t $REPOSITORY_URI:latest .
+      - TIME_TAG=`date '+%Y%m%d%H%M%S'`
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$TIME_TAG
+
   post_build:
     commands:
-      - echo Build completed on `date`
+      - echo Pushing the Docker image to ECR...
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$TIME_TAG
+      # - echo '[{"name":"web","imageUri":"$REPOSITORY_URI:latest"}]' > imagedefinitions.json
+      - printf '[{"name":"web","imageUri":"%s"}]' "$REPOSITORY_URI:latest" > imagedefinitions.json
 
 artifacts:
   files:
-    - dist/shop/*
-    - dist/shop/assets/*
-    - appspec.yml
+    - imagedefinitions.json
